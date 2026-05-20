@@ -193,4 +193,4 @@ Traditional uptime monitors (Pingdom, Better Uptime) check if a URL returns 200.
 ## Author
 
 **Henry Dibie** — ML Systems Engineer & Ecommerce Infrastructure  
-[GitHub](https://github.com/HenryMorganDibie) · [LinkedIn](https://linkedin.com/in/kinghenrymorgan) · [Upwork](https://www.upwork.com/freelancers/henrydibie)
+[GitHub](https://github.com/HenryMorganDibie) · [LinkedIn](https://linkedin.com/in/kinghenrymorgan)
