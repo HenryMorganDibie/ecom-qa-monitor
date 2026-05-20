@@ -1,0 +1,31 @@
+{
+  "store": {
+    "checkoutUrl": "https://your-store.com/checkout",
+    "thankYouUrl": "https://your-store.com/thank-you",
+    "productPageUrl": "https://your-store.com/products/your-product"
+  },
+  "pixels": {
+    "ga4MeasurementId": "G-XXXXXXXXXX",
+    "metaPixelId": "XXXXXXXXXXXXXXX",
+    "gtmContainerId": "GTM-XXXXXXX"
+  },
+  "webhooks": [
+    {
+      "name": "Order Created",
+      "url": "https://your-store.com/webhooks/orders/create",
+      "method": "POST",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Subscription Renewal",
+      "url": "https://your-store.com/webhooks/subscriptions/renew",
+      "method": "POST",
+      "expectedStatus": 200
+    }
+  ],
+  "redirectChain": [
+    "https://your-store.com/buy",
+    "https://your-store.com/checkout",
+    "https://your-store.com/thank-you"
+  ]
+}

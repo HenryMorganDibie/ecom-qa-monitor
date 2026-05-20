@@ -1,0 +1,41 @@
+{
+  "name": "ecom-qa-monitor",
+  "version": "1.0.0",
+  "description": "AI-assisted production health monitoring for ecommerce checkout flows, tracking integrity, and subscription systems",
+  "main": "src/runner.js",
+  "scripts": {
+    "start": "node src/runner.js",
+    "test": "jest --coverage",
+    "monitor": "bash scripts/runMonitor.sh",
+    "lint": "eslint src/ tests/"
+  },
+  "keywords": [
+    "ecommerce",
+    "qa",
+    "monitoring",
+    "shopify",
+    "checkout",
+    "ai",
+    "automation"
+  ],
+  "author": "Henry Dibie <henry@example.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.20.0",
+    "axios": "^1.6.0",
+    "cheerio": "^1.0.0-rc.12",
+    "dotenv": "^16.3.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "axios-mock-adapter": "^1.22.0",
+    "eslint": "^8.55.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "coverageDirectory": "coverage",
+    "collectCoverageFrom": [
+      "src/**/*.js"
+    ]
+  }
+}
