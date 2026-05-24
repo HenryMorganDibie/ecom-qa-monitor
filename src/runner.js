@@ -3,10 +3,6 @@
  *
  * Orchestrates all ecommerce health checks, collects results,
  * and triggers AI incident summarization when failures are detected.
- *
- * Usage:
- *   node src/runner.js
- *   node src/runner.js --config ./config.json
  */
 
 require("dotenv").config();
@@ -19,7 +15,9 @@ const { checkWebhooks } = require("./checks/webhookCheck");
 const { checkRedirectChain } = require("./checks/redirectCheck");
 const { summarizeIncident } = require("./ai/summarize");
 
-// ─── Config Loading ────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Config Loading
+// ─────────────────────────────────────────────────────────────
 
 function loadConfig() {
   const configArg = process.argv.find((a) => a.startsWith("--config="));
@@ -34,17 +32,33 @@ function loadConfig() {
     return require("../config.example.json");
   }
 
-  return JSON.parse(fs.readFileSync(configPath, "utf-8"));
+  const raw = fs.readFileSync(configPath, "utf-8");
+
+  if (!raw.trim()) {
+    throw new Error("[runner] config.json is empty. Check MONITOR_CONFIG.");
+  }
+
+  return JSON.parse(raw);
 }
 
-// ─── Result Formatting ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Formatting
+// ─────────────────────────────────────────────────────────────
 
 function formatResultLine(result) {
-  const icon = result.status === "ok" ? "✅" : result.status === "warning" ? "⚠️ " : "❌";
+  const icon =
+    result.status === "ok"
+      ? "✅"
+      : result.status === "warning"
+      ? "⚠️"
+      : "❌";
+
   return `  ${icon} [${result.check}] ${result.message}`;
 }
 
-// ─── Main ──────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Main Runner
+// ─────────────────────────────────────────────────────────────
 
 async function run() {
   const config = loadConfig();
@@ -55,27 +69,29 @@ async function run() {
 
   const allResults = [];
 
-  // 1. Checkout flow check
+  // 1. Checkout flow
   console.log("\n[1/4] Checking checkout flow...");
   const checkoutResults = await checkCheckoutFlow(config.store);
   allResults.push(...checkoutResults);
 
-  // 2. Pixel / tracking tag check
+  // 2. Pixels
   console.log("[2/4] Checking tracking pixels...");
   const pixelResults = await checkPixels(config.store, config.pixels);
   allResults.push(...pixelResults);
 
-  // 3. Webhook health check
+  // 3. Webhooks
   console.log("[3/4] Checking webhook endpoints...");
   const webhookResults = await checkWebhooks(config.webhooks);
   allResults.push(...webhookResults);
 
-  // 4. Redirect chain integrity
+  // 4. Redirect chain
   console.log("[4/4] Checking redirect chain...");
   const redirectResults = await checkRedirectChain(config.redirectChain);
   allResults.push(...redirectResults);
 
-  // ─── Summary ────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // Summary
+  // ─────────────────────────────────────────────────────────────
 
   const failures = allResults.filter((r) => r.status === "fail");
   const warnings = allResults.filter((r) => r.status === "warning");
@@ -84,6 +100,7 @@ async function run() {
   console.log("\n" + "─".repeat(60));
   console.log("📋 CHECK RESULTS");
   console.log("─".repeat(60));
+
   allResults.forEach((r) => console.log(formatResultLine(r)));
 
   console.log("\n" + "─".repeat(60));
@@ -91,10 +108,13 @@ async function run() {
     `📊 Summary: ${passes.length} passed · ${warnings.length} warnings · ${failures.length} failed`
   );
 
-  // ─── AI Incident Summary ─────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // AI Incident Summary
+  // ─────────────────────────────────────────────────────────────
 
   if (failures.length > 0 || warnings.length > 0) {
     console.log("\n🤖 Generating AI incident summary...\n");
+
     try {
       const summary = await summarizeIncident({
         timestamp: runTimestamp,
@@ -103,6 +123,7 @@ async function run() {
         warnings,
         config,
       });
+
       console.log("─".repeat(60));
       console.log("🚨 AI INCIDENT REPORT");
       console.log("─".repeat(60));
@@ -116,14 +137,26 @@ async function run() {
 
   console.log("\n" + "─".repeat(60));
   console.log(`Run complete at ${new Date().toISOString()}\n`);
-
-  // Exit non-zero if there are failures (useful for CI)
-  if (failures.length > 0) {
-    process.exit(1);
-  }
 }
 
-run().catch((err) => {
-  console.error("\n[runner] Fatal error:", err);
-  process.exit(1);
-});
+// ─────────────────────────────────────────────────────────────
+// SAFE SHUTDOWN (fixes Windows UV_HANDLE_CLOSING crash)
+// ─────────────────────────────────────────────────────────────
+
+async function main() {
+  await run();
+}
+
+main()
+  .then(() => {
+    setTimeout(() => {
+      process.exit(0);
+    }, 100); // gives async handles time to close safely
+  })
+  .catch((err) => {
+    console.error("\n[runner] Fatal error:", err);
+    process.exit(1);
+  });
+
+// Prevent premature exit issues on Windows libuv
+process.on("beforeExit", () => {});

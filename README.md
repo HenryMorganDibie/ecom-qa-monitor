@@ -58,7 +58,7 @@ cp config.example.json config.json
 
 Set your environment variables:
 ```bash
-export ANTHROPIC_API_KEY=your_key_here
+export GROQ_API_KEY=your_key
 export WEBHOOK_SECRET=your_webhook_secret
 ```
 
