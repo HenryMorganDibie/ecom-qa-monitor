@@ -1,22 +1,22 @@
 # 🛒 Ecom QA Monitor
 
-> **AI-assisted production health monitoring for ecommerce checkout flows, tracking integrity, and subscription systems.**
+> **AI-assisted external ecommerce health monitoring for checkout flows, tracking integrity, and webhook endpoint validation.**
 
-A lightweight but production-grade tool that continuously validates your ecommerce stack — checkout redirects, pixel firing, subscription webhooks, and analytics integrity — and uses an LLM to generate plain-English incident summaries when things break.
+A lightweight production-style observability tool that continuously probes ecommerce-facing endpoints (checkout pages, product pages, and webhook URLs), validates tracking pixel presence, and uses a local LLM (via Groq) to generate structured incident summaries when issues are detected.
 
-Built to solve a real problem: catching silent failures in checkout flows *before* they cost you revenue.
+Built to simulate real-world ecommerce failure detection — including checkout degradation, tracking loss, and endpoint failures.
 
 ---
 
 ## 🔍 What It Does
 
-| Check | What it validates |
-|---|---|
-| **Checkout Flow** | HTTP status codes, redirect chains, final landing URL |
-| **Tracking Pixels** | Presence of GA4 / Meta Pixel / GTM script tags in page HTML |
-| **Webhook Health** | POST to subscription/order webhook endpoints, validates response shape |
-| **Redirect Integrity** | Ensures no unexpected 301/302 loops or broken funnel steps |
-| **AI Incident Summary** | Feeds all failures to Claude claude-sonnet-4-20250514 → returns a prioritized, plain-English ops report |
+| Check                    | What it validates                                                            |
+| ------------------------ | ---------------------------------------------------------------------------- |
+| **Checkout Flow Probe**  | HTTP status, response time, and accessibility of checkout/cart pages         |
+| **Tracking Pixels**      | Detects GA4, Meta Pixel, and GTM presence in HTML                            |
+| **Webhook Health Probe** | Sends test requests to configured endpoints and validates responses          |
+| **Redirect Integrity**   | Ensures redirect chains behave as expected                                   |
+| **AI Incident Summary**  | Uses Llama 3 via Groq to generate structured, plain-English incident reports |
 
 ---
 
@@ -25,22 +25,22 @@ Built to solve a real problem: catching silent failures in checkout flows *befor
 ```
 ecom-qa-monitor/
 ├── src/
-│   ├── runner.js          # Orchestrates all checks, collects results
+│   ├── runner.js              # Orchestrates all checks + aggregation
 │   ├── checks/
-│   │   ├── checkoutFlow.js    # Validates checkout URL chain
-│   │   ├── pixelCheck.js      # Scrapes page HTML for tracking scripts
-│   │   ├── webhookCheck.js    # Fires test payloads at webhook endpoints
-│   │   └── redirectCheck.js   # Follows redirects, detects loops
+│   │   ├── checkoutFlow.js    # Checkout/cart accessibility checks
+│   │   ├── pixelCheck.js      # HTML-based tracking detection
+│   │   ├── webhookCheck.js    # Endpoint health probes
+│   │   └── redirectCheck.js   # Redirect chain validation
 │   └── ai/
-│       └── summarize.js       # Sends failures to Claude for incident report
+│       └── summarize.js       # Groq-powered incident summarization
 ├── tests/
-│   └── unit/              # Jest unit tests for each check module
+│   └── unit/
 ├── scripts/
-│   └── runMonitor.sh      # Local run script with env var loading
+│   └── runMonitor.sh
 ├── .github/
 │   └── workflows/
-│       └── qa-monitor.yml # Runs on push + scheduled (every 30 min)
-├── config.example.json    # Template for endpoint configuration
+│       └── qa-monitor.yml
+├── config.example.json
 └── package.json
 ```
 
@@ -53,16 +53,17 @@ git clone https://github.com/HenryMorganDibie/ecom-qa-monitor.git
 cd ecom-qa-monitor
 npm install
 cp config.example.json config.json
-# Edit config.json with your store URLs and endpoints
 ```
 
-Set your environment variables:
+Set environment variables:
+
 ```bash
 export GROQ_API_KEY=your_key
 export WEBHOOK_SECRET=your_webhook_secret
 ```
 
 Run:
+
 ```bash
 node src/runner.js
 # or
@@ -73,30 +74,37 @@ bash scripts/runMonitor.sh
 
 ## 📋 Config
 
+This project currently supports **external ecommerce endpoint probing (Nike-style targets or similar public pages used for validation/testing).**
+
 ```json
 {
   "store": {
-    "checkoutUrl": "https://your-store.com/checkout",
-    "thankYouUrl": "https://your-store.com/thank-you",
-    "productPageUrl": "https://your-store.com/products/your-product"
+    "checkoutUrl": "https://www.nike.com/cart",
+    "thankYouUrl": "https://www.nike.com",
+    "productPageUrl": "https://www.nike.com/t/air-force-1-07-mens-shoes"
   },
   "pixels": {
-    "ga4MeasurementId": "G-XXXXXXXXXX",
-    "metaPixelId": "XXXXXXXXXXXXXXX",
-    "gtmContainerId": "GTM-XXXXXXX"
+    "ga4MeasurementId": "G-TEST123456",
+    "metaPixelId": "123456789012345",
+    "gtmContainerId": "GTM-TEST123"
   },
   "webhooks": [
     {
-      "name": "Order Created",
-      "url": "https://your-store.com/webhooks/orders/create",
-      "method": "POST",
+      "name": "Homepage Probe",
+      "url": "https://www.nike.com",
+      "method": "GET",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Cart Probe",
+      "url": "https://www.nike.com/cart",
+      "method": "GET",
       "expectedStatus": 200
     }
   ],
   "redirectChain": [
-    "https://your-store.com/buy",
-    "https://your-store.com/checkout",
-    "https://your-store.com/thank-you"
+    "https://www.nike.com",
+    "https://www.nike.com/cart"
   ]
 }
 ```
@@ -105,42 +113,41 @@ bash scripts/runMonitor.sh
 
 ## 🤖 AI Incident Summarization
 
-When failures are detected, the monitor compiles all results and calls Claude to generate a structured incident report:
+When failures or warnings are detected, results are sent to a local LLM (Llama 3.3 70B via Groq) to generate structured incident reports.
 
-**Sample AI Output:**
+### Example Output
+
 ```
-🚨 INCIDENT SUMMARY — 2025-05-20T14:32:00Z
+🚨 INCIDENT SUMMARY — 2026-05-24T16:49:54Z
 
-CRITICAL (1):
-- Checkout URL returned 502. Last healthy: 14 minutes ago.
-  Likely cause: upstream server error or deploy in progress.
-  Recommended action: Check Shopify status page + recent deploys.
+CRITICAL (5):
+- GA4 missing on product page: tracking degradation detected.
+- Meta Pixel missing on product page: attribution loss risk.
+- GTM container missing: tag injection failure.
+- Checkout response slow: potential performance bottleneck.
 
-WARNING (1):
-- Meta Pixel not detected on /thank-you page.
-  Likely cause: GTM tag misfiring or conditional trigger issue.
-  Recommended action: Inspect GTM container for purchase event trigger.
-
-OK (3): Redirect chain, GA4, webhook endpoint all healthy.
+OK (9):
+- Checkout accessible, cart reachable, redirect chain stable.
 ```
 
-This pattern — automated checks + AI triage — means on-call engineers get actionable context immediately, not raw logs.
+This transforms raw probe results into **actionable operational intelligence**.
 
 ---
 
-## 🔁 GitHub Actions: Scheduled + Push Monitoring
+## 🔁 GitHub Actions: Scheduled Monitoring
 
-`.github/workflows/qa-monitor.yml` runs:
-- On every push to `main`
-- On a schedule: every 30 minutes
-- Sends Slack/email alert (configurable) on failure
+Runs automatically:
+
+* On every push to `main`
+* Every 30 minutes via cron
+* On manual trigger
 
 ```yaml
 on:
   push:
     branches: [main]
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: "*/30 * * * *"
 ```
 
 ---
@@ -151,46 +158,46 @@ on:
 npm test
 ```
 
-Unit tests cover each check module with mocked HTTP responses. Integration tests (opt-in) fire against a staging environment.
+Unit tests validate each probe module using mocked HTTP responses.
 
 ---
 
 ## 💡 Real-World Context
 
-This tool was designed around a class of production failures common in ecommerce:
+This tool simulates real-world ecommerce observability by probing:
 
-- **Silent checkout breaks** — checkout loads but payment gateway silently fails; no alert fires
-- **Pixel drift** — a deploy removes a `<script>` tag, Meta/GA4 data goes dark for hours before anyone notices
-- **Redirect rot** — a URL slug change breaks a paid ad funnel; ROAS tanks before the team catches it
-- **Webhook timeouts** — subscription renewal webhooks start timing out; fulfillment queue silently backs up
+* Checkout availability and performance
+* Pixel presence (GA4 / Meta / GTM)
+* Webhook endpoint responsiveness
+* Redirect integrity
 
-Traditional uptime monitors (Pingdom, Better Uptime) check if a URL returns 200. They won't catch pixel absence, redirect chain breaks, or webhook payload validation failures. This tool does.
+Unlike traditional uptime monitoring tools, this system focuses on **business-layer failure detection**, not just HTTP status checks.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Node.js** — runtime
-- **axios** — HTTP requests
-- **cheerio** — lightweight HTML parsing for pixel detection
-- **Jest** — unit testing
-- **GitHub Actions** — CI/CD and scheduled runs
-- **Anthropic Claude API** — AI incident summarization
-- **dotenv** — local environment management
+* Node.js
+* axios
+* cheerio
+* Jest
+* GitHub Actions
+* Groq (LLM inference)
+* dotenv
 
 ---
 
 ## 📌 Roadmap
 
-- [ ] Shopify-native webhook HMAC validation
-- [ ] Checkout Champ endpoint support
-- [ ] Slack + PagerDuty alerting integrations
-- [ ] Historical run log with SQLite
-- [ ] Dashboard UI (React) for monitoring history
+* [ ] Slack + Discord alerting
+* [ ] Historical incident logging (SQLite)
+* [ ] Multi-target probe scheduling
+* [ ] Failure trend detection
+* [ ] Lightweight monitoring dashboard
 
 ---
 
-## Author
+## 👤 Author
 
-**Henry Dibie** — ML Systems Engineer & Ecommerce Infrastructure  
-[GitHub](https://github.com/HenryMorganDibie) · [LinkedIn](https://linkedin.com/in/kinghenrymorgan)
+**Henry Dibie** — ML Systems Engineer & Ecommerce Infrastructure
+GitHub · LinkedIn
