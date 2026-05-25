@@ -1,5 +1,8 @@
 name: Ecom QA Monitor
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   push:
     branches: [master]
@@ -31,21 +34,17 @@ jobs:
       - name: Run unit tests
         run: npm test
 
-      # ✅ SAFE CONFIG WRITE (handles multiline JSON properly)
       - name: Write config from secret
         run: |
           printf "%s" "$MONITOR_CONFIG" > config.json
         env:
           MONITOR_CONFIG: ${{ secrets.MONITOR_CONFIG }}
 
-      # 🔍 Validate config early (FAIL FAST)
       - name: Validate config
         run: |
           echo "Validating config.json..."
-          cat config.json
           node -e "const fs=require('fs'); JSON.parse(fs.readFileSync('config.json','utf8')); console.log('JSON valid ✔')"
 
-      # 🚀 Run monitor
       - name: Run QA monitor
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
@@ -59,7 +58,7 @@ jobs:
           script: |
             core.warning(
               `🚨 QA Monitor detected failures at ${new Date().toISOString()}.
-               Check run logs: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+              Check run logs: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             )
 
   unit-tests:
