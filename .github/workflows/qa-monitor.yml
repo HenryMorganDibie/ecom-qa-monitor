@@ -2,7 +2,7 @@ name: Ecom QA Monitor
 
 on:
   push:
-    branches: [main]
+    branches: [master]
 
   schedule:
     - cron: "*/30 * * * *"
@@ -52,7 +52,6 @@ jobs:
           WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
         run: node src/runner.js
 
-      # ⚠️ FIXED github-script (no duplicate context import)
       - name: Notify on failure
         if: failure()
         uses: actions/github-script@v7
