@@ -138,14 +138,14 @@ This transforms raw probe results into **actionable operational intelligence**.
 
 Runs automatically:
 
-* On every push to `main`
+* On every push to `master`
 * Every 30 minutes via cron
 * On manual trigger
 
 ```yaml
 on:
   push:
-    branches: [main]
+    branches: [master]
   schedule:
     - cron: "*/30 * * * *"
 ```
